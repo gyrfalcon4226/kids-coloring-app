@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kids Coloring Master</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #f0f4f8;
+            font-family: "Varela Round", sans-serif; /* 圓潤字體適合兒童 */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overscroll-behavior: none;
+            user-select: none; /* 禁止選取文字 */
+        }
+
+        /* 頂部控制列 (復原/重做/儲存) */
+        #toolbar {
+            height: 60px;
+            background: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            background: #eef2f5;
+            border: none;
+            border-radius: 12px;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.1s;
+        }
+
+        .btn:active { transform: scale(0.9); background: #dce4e8; }
+        
+        /* 禁用狀態樣式 */
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-save { background: #4CD964; color: white; width: auto; padding: 0 20px; font-weight: bold; }
+
+        /* 畫布區域 */
+        #canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: #fff;
+            margin: 10px;
+            border-radius: 16px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05); /* 內陰影增加質感 */
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        /* 底部色票區 */
+        #palette {
+            height: 90px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: #fff;
+            padding-bottom: env(safe-area-inset-bottom);
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+        }
+
+        .color-swatch {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 彈性動畫 */
+        }
+        .color-swatch.active { transform: scale(1.25); border-color: #333; z-index: 10; }
+    </style>
+</head>
+<body>
+
+    <div id="toolbar">
+        <div class="tool-group">
+            <button id="btn-undo" class="btn" title="復原">↩️</button>
+            <button id="btn-redo" class="btn" title="重做">↪️</button>
+        </div>
+        <button id="btn-save" class="btn btn-save" title="儲存圖片">💾 儲存</button>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="drawing-canvas"></canvas>
+    </div>
+
+    <div id="palette"></div>
+
+    <script>
+        // --- 設定與參數 ---
+        const IMAGE_FILENAME = 'coloring.png'; // ⚠️ 請確認您的檔名
+        const TOLERANCE = 50;  // 容差值
+        const MAX_HISTORY = 10; // 最大復原步數 (避免記憶體爆掉)
+
+        // --- DOM 元素 ---
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const paletteContainer = document.getElementById('palette');
+        const btnUndo = document.getElementById('btn-undo');
+        const btnRedo = document.getElementById('btn-redo');
+        const btnSave = document.getElementById('btn-save');
+        
+        // --- 狀態變數 ---
+        let currentColor = [255, 59, 48, 255]; 
+        const baseWidth = 800;
+        const baseHeight = 800;
+        
+        // 歷史紀錄堆疊
+        let historyStack = [];
+        let redoStack = [];
+
+        function init() {
+            canvas.width = baseWidth;
+            canvas.height = baseHeight;
+            
+            createPalette();
+            loadLineArt();
+            updateUI(); // 初始化按鈕狀態
+
+            // 事件綁定
+            canvas.addEventListener('pointerdown', handleCanvasClick);
+            btnUndo.addEventListener('click', undo);
+            btnRedo.addEventListener('click', redo);
+            btnSave.addEventListener('click', saveImage);
+        }
+
+        // --- 核心功能：狀態管理 (Undo/Redo) ---
+        
+        // 在「改變畫布前」呼叫此函式來存檔
+        function saveState() {
+            // 1. 如果重做堆疊裡有東西，清空它 (因為有了新的分支)
+            redoStack = []; 
+            
+            // 2. 儲存當前完整像素數據
+            if (historyStack.length >= MAX_HISTORY) {
+                historyStack.shift(); // 移除最舊的紀錄，保持堆疊大小
+            }
+            historyStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            
+            updateUI();
+        }
+
+        function undo() {
+            if (historyStack.length === 0) return;
+
+            // 1. 把現在的狀態存入 Redo 堆疊
+            redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+
+            // 2. 取出上一步的狀態
+            const previousState = historyStack.pop();
+
+            // 3. 恢復畫面
+            ctx.putImageData(previousState, 0, 0);
+            
+            updateUI();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+
+            // 1. 把現在的狀態存入 Undo 堆疊 (以便再次 Undo)
+            historyStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+
+            // 2. 取出未來的狀態
+            const nextState = redoStack.pop();
+
+            // 3. 恢復畫面
+            ctx.putImageData(nextState, 0, 0);
+            
+            updateUI();
+        }
+
+        function updateUI() {
+            // 根據堆疊內容決定按鈕是否可按
+            btnUndo.disabled = historyStack.length === 0;
+            btnRedo.disabled = redoStack.length === 0;
+        }
+
+        // --- 核心功能：儲存圖片 ---
+        function saveImage() {
+            // 建立一個暫時的連結來觸發下載
+            const link = document.createElement('a');
+            // 使用時間戳記當檔名，避免重複
+            const date = new Date();
+            const timestamp = `${date.getFullYear()}${date.getMonth()+1}${date.getDate()}_${date.getHours()}${date.getMinutes()}`;
+            
+            link.download = `MyArt_${timestamp}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // --- 繪圖與載入邏輯 ---
+
+        function loadLineArt() {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = IMAGE_FILENAME;
+
+            img.onload = function() {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                const w = img.width * scale;
+                const h = img.height * scale;
+                const x = (canvas.width - w) / 2;
+                const y = (canvas.height - h) / 2;
+
+                ctx.drawImage(img, x, y, w, h);
+                // 圖片載入完成後，這就是我們的「初始狀態」，但不一定要存入 Undo，
+                // 這樣用戶點 Undo 就不會把圖片變不見。
+            };
+            
+            img.onerror = function() {
+                alert(`錯誤：找不到圖片 '${IMAGE_FILENAME}'`);
+            };
+        }
+
+        function handleCanvasClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+            // 執行填色
+            floodFill(x, y, currentColor);
+        }
+
+        function floodFill(startX, startY, fillColor) {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+            
+            const startPos = (startY * canvas.width + startX) * 4;
+            const startR = pixels[startPos];
+            const startG = pixels[startPos + 1];
+            const startB = pixels[startPos + 2];
+
+            // 檢查是否需要填色
+            if (colorsAreSimilar(startR, startG, startB, fillColor[0], fillColor[1], fillColor[2], 20) || 
+                isBlackOutline(startR, startG, startB)) {
+                return;
+            }
+
+            // ⚠️ 關鍵動作：在真正修改像素之前，先保存當前狀態！
+            saveState();
+            // 這裡我們需要重新獲取 imageData，因為 saveState 可能還沒執行完嗎？
+            // 其實不用，因為 getImageData 是同步的。但為了邏輯乾淨，我們繼續執行。
+
+            const queue = [[startX, startY]];
+            const visited = new Uint8Array(canvas.width * canvas.height); 
+            
+            while (queue.length > 0) {
+                const [x, y] = queue.shift();
+                const pixelIndex = y * canvas.width + x;
+                
+                if (visited[pixelIndex]) continue;
+                visited[pixelIndex] = 1;
+
+                const pixelPos = pixelIndex * 4;
+                const r = pixels[pixelPos];
+                const g = pixels[pixelPos + 1];
+                const b = pixels[pixelPos + 2];
+
+                if (colorsAreSimilar(r, g, b, startR, startG, startB, TOLERANCE)) {
+                    pixels[pixelPos] = fillColor[0];
+                    pixels[pixelPos + 1] = fillColor[1];
+                    pixels[pixelPos + 2] = fillColor[2];
+                    pixels[pixelPos + 3] = 255; 
+
+                    if (x > 0) queue.push([x - 1, y]);
+                    if (x < canvas.width - 1) queue.push([x + 1, y]);
+                    if (y > 0) queue.push([x, y - 1]);
+                    if (y < canvas.height - 1) queue.push([x, y + 1]);
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function colorsAreSimilar(r1, g1, b1, r2, g2, b2, tol) {
+            return (Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2)) <= tol;
+        }
+
+        function isBlackOutline(r, g, b) {
+            return r < 100 && g < 100 && b < 100; 
+        }
+
+        function createPalette() {
+            const colors = [
+                [255, 59, 48], [255, 149, 0], [255, 204, 0], [76, 217, 100],
+                [90, 200, 250], [0, 122, 255], [88, 86, 214], [255, 105, 180], 
+                [100, 100, 100], [255, 255, 255]
+            ];
+            colors.forEach((c, index) => {
+                const div = document.createElement('div');
+                div.className = `color-swatch ${index === 0 ? 'active' : ''}`;
+                div.style.backgroundColor = `rgb(${c[0]},${c[1]},${c[2]})`;
+                div.addEventListener('click', () => {
+                    document.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('active'));
+                    div.classList.add('active');
+                    currentColor = [...c, 255];
+                });
+                paletteContainer.appendChild(div);
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>
