@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kids Coloring Master - Ultimate</title>
+    <title>Kids Coloring Master - Final Fix</title>
     <style>
         /* --- CSS 佈局核心 --- */
         body {
@@ -58,7 +58,7 @@
             cursor: crosshair;
         }
 
-        /* --- 色票區優化 --- */
+        /* --- 色票區 --- */
         #palette {
             height: 12vh;
             min-height: 70px;
@@ -72,27 +72,16 @@
             padding-bottom: env(safe-area-inset-bottom);
             box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
             flex-shrink: 0;
-            overflow-x: auto; /* 允許橫向捲動 */
+            overflow-x: auto; 
             overflow-y: hidden;
-            
-            /* 🏆 關鍵修正：PC版顯示細緻捲軸，手機版隱藏 */
-            scrollbar-width: thin; /* Firefox: 細捲軸 */
-            scrollbar-color: #ddd transparent; /* Firefox: 顏色 */
+            scrollbar-width: thin; 
+            scrollbar-color: #ddd transparent;
         }
 
-        /* 針對 Webkit (Chrome/Safari/Edge) 的捲軸美化 */
-        #palette::-webkit-scrollbar {
-            height: 6px; /* 高度設為 6px，細緻不擋路 */
-        }
-        #palette::-webkit-scrollbar-thumb {
-            background-color: #ddd; /* 淺灰色捲軸 */
-            border-radius: 10px; /* 圓角 */
-        }
-        #palette::-webkit-scrollbar-track {
-            background: transparent;
-        }
+        #palette::-webkit-scrollbar { height: 6px; }
+        #palette::-webkit-scrollbar-thumb { background-color: #ddd; border-radius: 10px; }
+        #palette::-webkit-scrollbar-track { background: transparent; }
 
-        /* 📱 針對移動裝置 (觸控螢幕)：隱藏捲軸，保持美觀 */
         @media (pointer: coarse) {
             #palette { scrollbar-width: none; }
             #palette::-webkit-scrollbar { display: none; }
@@ -147,9 +136,12 @@
 
     <script>
         // --- 參數設定 ---
-        const IMAGE_FILENAME = 'coloring.png'; // ⚠️ 請確認檔名
+        const IMAGE_FILENAME = 'coloring.png'; 
         const TOLERANCE = 50; 
         const MAX_HISTORY = 10; 
+        // 🏆 修正點 1: 調降線條判斷門檻 (原本 100 -> 改為 50)
+        // 只有非常黑的顏色 (RGB < 50) 才會被當作「不可覆蓋的線條」
+        const LINE_THRESHOLD = 50; 
 
         // --- DOM ---
         const canvas = document.getElementById('drawing-canvas');
@@ -179,25 +171,35 @@
             btnRedo.addEventListener('click', redo);
             btnSave.addEventListener('click', saveImage);
 
-            // 🏆 關鍵修正：讓滑鼠滾輪 (垂直) 可以控制色票 (水平) 捲動
             paletteContainer.addEventListener('wheel', (e) => {
                 if (e.deltaY !== 0) {
-                    e.preventDefault(); // 防止頁面上下跳動
-                    paletteContainer.scrollLeft += e.deltaY; // 將垂直滾動轉換為水平滾動
+                    e.preventDefault();
+                    paletteContainer.scrollLeft += e.deltaY;
                 }
             }, { passive: false });
         }
 
-        // --- 30種顏色 (維持不變) ---
         function createPalette() {
             const colors = [
+                // 紅粉色系
                 [255, 59, 48], [255, 105, 180], [255, 182, 193], [220, 20, 60],
+                // 橙黃色系
                 [255, 149, 0], [255, 165, 0], [255, 204, 0], [255, 255, 0], [240, 230, 140],
+                // 膚色與大地色
                 [255, 228, 196], [255, 218, 185], [210, 180, 140], [139, 69, 19],
+                // 綠色系
                 [76, 217, 100], [124, 252, 0], [34, 139, 34], [0, 128, 128],
+                // 藍色系
                 [90, 200, 250], [0, 191, 255], [0, 122, 255], [0, 0, 139],
+                // 紫色系
                 [88, 86, 214], [148, 0, 211], [221, 160, 221],
-                [255, 255, 255], [211, 211, 211], [128, 128, 128], [169, 169, 169], [80, 80, 80], [0, 0, 0]
+                // 黑白灰 (🏆 修正點 2: 調整深色系的 RGB 值，確保它們 > 50)
+                [255, 255, 255], // 白
+                [211, 211, 211], // 淺灰
+                [150, 150, 150], // 中灰 (調亮)
+                [105, 105, 105], // 深灰 (原本是 80 -> 改 105，大於 LINE_THRESHOLD)
+                [60, 60, 60],    // 黑灰 (原本是 0 -> 改 60，看起來像黑，但程式認定是顏料)
+                [55, 55, 55]     // 模擬純黑 (Human Black)，數值夠大可被重塗
             ];
 
             colors.forEach((c, index) => {
@@ -248,8 +250,11 @@
             const startG = pixels[startPos + 1];
             const startB = pixels[startPos + 2];
 
-            if (colorsAreSimilar(startR, startG, startB, fillColor[0], fillColor[1], fillColor[2], 20) || 
-                isBlackOutline(startR, startG, startB)) return;
+            // 檢查：如果點擊的顏色相似度太高 (避免重複填色)
+            if (colorsAreSimilar(startR, startG, startB, fillColor[0], fillColor[1], fillColor[2], 20)) return;
+            
+            // 檢查：如果點擊的是「真正的線條」 (RGB < 50)，則禁止填色
+            if (isBlackOutline(startR, startG, startB)) return;
 
             saveState();
 
@@ -322,8 +327,9 @@
             return (Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2)) <= tol;
         }
 
+        // 🏆 修正點 3: 使用全域變數 LINE_THRESHOLD
         function isBlackOutline(r, g, b) {
-            return r < 100 && g < 100 && b < 100; 
+            return r < LINE_THRESHOLD && g < LINE_THRESHOLD && b < LINE_THRESHOLD; 
         }
 
         init();
