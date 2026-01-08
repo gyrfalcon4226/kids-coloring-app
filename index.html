@@ -4,105 +4,107 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kids Coloring Master</title>
+    <title>Kids Coloring Master - Responsive</title>
     <style>
+        /* --- CSS 佈局核心 --- */
         body {
             margin: 0;
-            overflow: hidden;
+            overflow: hidden; /* 徹底禁止捲動 */
             background-color: #f0f4f8;
-            font-family: "Varela Round", sans-serif; /* 圓潤字體適合兒童 */
+            font-family: "Varela Round", sans-serif;
             display: flex;
-            flex-direction: column;
-            height: 100vh;
+            flex-direction: column; /* 垂直排列 */
+            height: 100vh; /* 佔滿視窗高度 */
+            height: 100dvh; /* 針對移動瀏覽器動態高度的優化 */
             overscroll-behavior: none;
-            user-select: none; /* 禁止選取文字 */
+            user-select: none;
         }
 
-        /* 頂部控制列 (復原/重做/儲存) */
+        /* 頂部工具列：固定高度，不可壓縮 */
         #toolbar {
             height: 60px;
             background: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 20px;
+            padding: 0 15px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             z-index: 10;
+            flex-shrink: 0; /* 關鍵：禁止被壓縮 */
         }
 
-        .tool-group {
-            display: flex;
-            gap: 15px;
-        }
-
-        .btn {
-            background: #eef2f5;
-            border: none;
-            border-radius: 12px;
-            width: 44px;
-            height: 44px;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: all 0.1s;
-        }
-
-        .btn:active { transform: scale(0.9); background: #dce4e8; }
-        
-        /* 禁用狀態樣式 */
-        .btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-save { background: #4CD964; color: white; width: auto; padding: 0 20px; font-weight: bold; }
-
-        /* 畫布區域 */
+        /* 畫布容器：佔滿剩餘空間，但絕不溢出 */
         #canvas-container {
-            flex: 1;
+            flex: 1; /* 吃掉所有剩餘空間 */
+            min-height: 0; /* 🏆 關鍵修正：允許容器縮小到比內容還小 */
             display: flex;
             justify-content: center;
             align-items: center;
             position: relative;
-            background: #fff;
-            margin: 10px;
-            border-radius: 16px;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.05); /* 內陰影增加質感 */
+            background: #eef2f5; /* 容器底色與背景一致，讓畫布像浮在中間 */
+            padding: 10px; /* 留一點邊距 */
+            width: 100%;
+            box-sizing: border-box;
         }
 
         canvas {
+            /* 讓 Canvas 自己決定大小，但絕對不超過容器 */
             max-width: 100%;
             max-height: 100%;
+            object-fit: contain; /* 保持比例 */
+            background: white; /* 畫布本體是白的 */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* 給畫布加陰影 */
+            border-radius: 8px;
             touch-action: none;
             cursor: crosshair;
         }
 
-        /* 底部色票區 */
+        /* 底部色票：固定高度，不可壓縮 */
         #palette {
             height: 90px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: 10px;
             background: #fff;
             padding-bottom: env(safe-area-inset-bottom);
-            border-top-left-radius: 20px;
-            border-top-right-radius: 20px;
             box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+            flex-shrink: 0; /* 關鍵：禁止被壓縮 */
+            overflow-x: auto; /* 如果顏色太多，允許左右滑動 */
         }
 
+        /* 按鈕樣式優化 */
+        .btn {
+            background: #eef2f5;
+            border: none;
+            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+            transition: all 0.1s;
+        }
+        .btn:active { transform: scale(0.9); background: #dce4e8; }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+        .btn-save { background: #4CD964; color: white; width: auto; padding: 0 15px; font-weight: bold; font-size: 14px; }
+        .tool-group { display: flex; gap: 10px; }
+
         .color-swatch {
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
+            min-width: 40px; /* 防止被擠扁 */
             border-radius: 50%;
             border: 3px solid #fff;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 彈性動畫 */
+            transition: transform 0.1s;
         }
-        .color-swatch.active { transform: scale(1.25); border-color: #333; z-index: 10; }
+        .color-swatch.active { transform: scale(1.2); border-color: #333; }
+
+        /* 針對 PC 的額外優化：當螢幕夠寬時，增加一些陰影層次 */
+        @media (min-width: 768px) {
+            #canvas-container { padding: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -122,12 +124,12 @@
     <div id="palette"></div>
 
     <script>
-        // --- 設定與參數 ---
-        const IMAGE_FILENAME = 'coloring.png'; // ⚠️ 請確認您的檔名
-        const TOLERANCE = 50;  // 容差值
-        const MAX_HISTORY = 10; // 最大復原步數 (避免記憶體爆掉)
+        // --- 參數設定 ---
+        const IMAGE_FILENAME = 'coloring.png'; // ⚠️ 請確認檔名
+        const TOLERANCE = 50; 
+        const MAX_HISTORY = 10; 
 
-        // --- DOM 元素 ---
+        // --- DOM ---
         const canvas = document.getElementById('drawing-canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const paletteContainer = document.getElementById('palette');
@@ -135,106 +137,47 @@
         const btnRedo = document.getElementById('btn-redo');
         const btnSave = document.getElementById('btn-save');
         
-        // --- 狀態變數 ---
+        // --- 狀態 ---
         let currentColor = [255, 59, 48, 255]; 
         const baseWidth = 800;
-        const baseHeight = 800;
+        const baseHeight = 800; // 內部解析度維持正方形，顯示由 CSS 控制
         
-        // 歷史紀錄堆疊
         let historyStack = [];
         let redoStack = [];
 
         function init() {
+            // 設定畫布內部解析度 (這跟螢幕顯示大小無關，是照片的解析度)
             canvas.width = baseWidth;
             canvas.height = baseHeight;
             
             createPalette();
             loadLineArt();
-            updateUI(); // 初始化按鈕狀態
+            updateUI();
 
-            // 事件綁定
             canvas.addEventListener('pointerdown', handleCanvasClick);
             btnUndo.addEventListener('click', undo);
             btnRedo.addEventListener('click', redo);
             btnSave.addEventListener('click', saveImage);
+
+            // 👇 新增：監聽視窗改變，確保畫布永遠在正確位置 (雖然 CSS 已經處理大部分)
+            window.addEventListener('resize', () => {
+                // 這裡可以加入重新計算邏輯，但目前的 CSS 方案已經能自動處理
+                // 如果需要特殊重繪可以在這裡加
+            });
         }
 
-        // --- 核心功能：狀態管理 (Undo/Redo) ---
-        
-        // 在「改變畫布前」呼叫此函式來存檔
-        function saveState() {
-            // 1. 如果重做堆疊裡有東西，清空它 (因為有了新的分支)
-            redoStack = []; 
-            
-            // 2. 儲存當前完整像素數據
-            if (historyStack.length >= MAX_HISTORY) {
-                historyStack.shift(); // 移除最舊的紀錄，保持堆疊大小
-            }
-            historyStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-            
-            updateUI();
-        }
-
-        function undo() {
-            if (historyStack.length === 0) return;
-
-            // 1. 把現在的狀態存入 Redo 堆疊
-            redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-
-            // 2. 取出上一步的狀態
-            const previousState = historyStack.pop();
-
-            // 3. 恢復畫面
-            ctx.putImageData(previousState, 0, 0);
-            
-            updateUI();
-        }
-
-        function redo() {
-            if (redoStack.length === 0) return;
-
-            // 1. 把現在的狀態存入 Undo 堆疊 (以便再次 Undo)
-            historyStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-
-            // 2. 取出未來的狀態
-            const nextState = redoStack.pop();
-
-            // 3. 恢復畫面
-            ctx.putImageData(nextState, 0, 0);
-            
-            updateUI();
-        }
-
-        function updateUI() {
-            // 根據堆疊內容決定按鈕是否可按
-            btnUndo.disabled = historyStack.length === 0;
-            btnRedo.disabled = redoStack.length === 0;
-        }
-
-        // --- 核心功能：儲存圖片 ---
-        function saveImage() {
-            // 建立一個暫時的連結來觸發下載
-            const link = document.createElement('a');
-            // 使用時間戳記當檔名，避免重複
-            const date = new Date();
-            const timestamp = `${date.getFullYear()}${date.getMonth()+1}${date.getDate()}_${date.getHours()}${date.getMinutes()}`;
-            
-            link.download = `MyArt_${timestamp}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        }
-
-        // --- 繪圖與載入邏輯 ---
-
+        // --- 載入與繪圖 ---
         function loadLineArt() {
             const img = new Image();
             img.crossOrigin = "Anonymous";
             img.src = IMAGE_FILENAME;
 
             img.onload = function() {
+                // 1. 塗白底
                 ctx.fillStyle = 'white';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+                // 2. 智慧縮放 (即使圖片不是正方形，也會自動適配到 800x800 內)
                 const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
                 const w = img.width * scale;
                 const h = img.height * scale;
@@ -242,26 +185,31 @@
                 const y = (canvas.height - h) / 2;
 
                 ctx.drawImage(img, x, y, w, h);
-                // 圖片載入完成後，這就是我們的「初始狀態」，但不一定要存入 Undo，
-                // 這樣用戶點 Undo 就不會把圖片變不見。
+                // 初始狀態不一定要存入 history，視需求而定
             };
             
             img.onerror = function() {
-                alert(`錯誤：找不到圖片 '${IMAGE_FILENAME}'`);
+                // 這裡不跳 alert 擾人，改用 console
+                console.error("找不到圖片，請檢查檔名");
             };
         }
 
+        // --- 座標轉換系統 (回應式核心) ---
         function handleCanvasClick(e) {
+            // 每次點擊都重新計算，保證視窗縮放後依然準確
             const rect = canvas.getBoundingClientRect();
+            
+            // 算出 Canvas 內部像素 與 螢幕顯示像素 的比例
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
+
             const x = Math.floor((e.clientX - rect.left) * scaleX);
             const y = Math.floor((e.clientY - rect.top) * scaleY);
 
-            // 執行填色
             floodFill(x, y, currentColor);
         }
 
+        // --- 著色邏輯 (與之前相同) ---
         function floodFill(startX, startY, fillColor) {
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const pixels = imageData.data;
@@ -271,16 +219,12 @@
             const startG = pixels[startPos + 1];
             const startB = pixels[startPos + 2];
 
-            // 檢查是否需要填色
             if (colorsAreSimilar(startR, startG, startB, fillColor[0], fillColor[1], fillColor[2], 20) || 
                 isBlackOutline(startR, startG, startB)) {
                 return;
             }
 
-            // ⚠️ 關鍵動作：在真正修改像素之前，先保存當前狀態！
-            saveState();
-            // 這裡我們需要重新獲取 imageData，因為 saveState 可能還沒執行完嗎？
-            // 其實不用，因為 getImageData 是同步的。但為了邏輯乾淨，我們繼續執行。
+            saveState(); // 存檔
 
             const queue = [[startX, startY]];
             const visited = new Uint8Array(canvas.width * canvas.height); 
@@ -309,8 +253,46 @@
                     if (y < canvas.height - 1) queue.push([x, y + 1]);
                 }
             }
-
             ctx.putImageData(imageData, 0, 0);
+        }
+
+        // --- Undo/Redo 系統 ---
+        function saveState() {
+            redoStack = []; 
+            if (historyStack.length >= MAX_HISTORY) historyStack.shift();
+            historyStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            updateUI();
+        }
+
+        function undo() {
+            if (historyStack.length === 0) return;
+            redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            const previousState = historyStack.pop();
+            ctx.putImageData(previousState, 0, 0);
+            updateUI();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            historyStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            const nextState = redoStack.pop();
+            ctx.putImageData(nextState, 0, 0);
+            updateUI();
+        }
+
+        function updateUI() {
+            btnUndo.disabled = historyStack.length === 0;
+            btnRedo.disabled = redoStack.length === 0;
+        }
+
+        // --- 儲存與輔助 ---
+        function saveImage() {
+            const link = document.createElement('a');
+            const date = new Date();
+            const timestamp = `${date.getFullYear()}${date.getMonth()+1}${date.getDate()}_${date.getHours()}${date.getMinutes()}`;
+            link.download = `KidsArt_${timestamp}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
         }
 
         function colorsAreSimilar(r1, g1, b1, r2, g2, b2, tol) {
