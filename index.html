@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kids Coloring Master - Final Fix</title>
+    <title>Kids Coloring Master - V3.3 Stable</title>
     <style>
         /* --- CSS 佈局核心 --- */
         body {
@@ -139,8 +139,7 @@
         const IMAGE_FILENAME = 'coloring.png'; 
         const TOLERANCE = 50; 
         const MAX_HISTORY = 10; 
-        // 🏆 修正點 1: 調降線條判斷門檻 (原本 100 -> 改為 50)
-        // 只有非常黑的顏色 (RGB < 50) 才會被當作「不可覆蓋的線條」
+        // 嚴格定義：小於 50 的顏色絕對是線條，神聖不可侵犯
         const LINE_THRESHOLD = 50; 
 
         // --- DOM ---
@@ -181,25 +180,14 @@
 
         function createPalette() {
             const colors = [
-                // 紅粉色系
                 [255, 59, 48], [255, 105, 180], [255, 182, 193], [220, 20, 60],
-                // 橙黃色系
                 [255, 149, 0], [255, 165, 0], [255, 204, 0], [255, 255, 0], [240, 230, 140],
-                // 膚色與大地色
                 [255, 228, 196], [255, 218, 185], [210, 180, 140], [139, 69, 19],
-                // 綠色系
                 [76, 217, 100], [124, 252, 0], [34, 139, 34], [0, 128, 128],
-                // 藍色系
                 [90, 200, 250], [0, 191, 255], [0, 122, 255], [0, 0, 139],
-                // 紫色系
                 [88, 86, 214], [148, 0, 211], [221, 160, 221],
-                // 黑白灰 (🏆 修正點 2: 調整深色系的 RGB 值，確保它們 > 50)
-                [255, 255, 255], // 白
-                [211, 211, 211], // 淺灰
-                [150, 150, 150], // 中灰 (調亮)
-                [105, 105, 105], // 深灰 (原本是 80 -> 改 105，大於 LINE_THRESHOLD)
-                [60, 60, 60],    // 黑灰 (原本是 0 -> 改 60，看起來像黑，但程式認定是顏料)
-                [55, 55, 55]     // 模擬純黑 (Human Black)，數值夠大可被重塗
+                [255, 255, 255], [211, 211, 211], [150, 150, 150],
+                [105, 105, 105], [60, 60, 60], [55, 55, 55] 
             ];
 
             colors.forEach((c, index) => {
@@ -242,6 +230,7 @@
             floodFill(x, y, currentColor);
         }
 
+        // 🏆 修正後的填色演算法 (加入邊界守衛)
         function floodFill(startX, startY, fillColor) {
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const pixels = imageData.data;
@@ -250,10 +239,10 @@
             const startG = pixels[startPos + 1];
             const startB = pixels[startPos + 2];
 
-            // 檢查：如果點擊的顏色相似度太高 (避免重複填色)
+            // 1. 點擊相似顏色 -> 不做
             if (colorsAreSimilar(startR, startG, startB, fillColor[0], fillColor[1], fillColor[2], 20)) return;
             
-            // 檢查：如果點擊的是「真正的線條」 (RGB < 50)，則禁止填色
+            // 2. 點擊到真正的線條 -> 不做
             if (isBlackOutline(startR, startG, startB)) return;
 
             saveState();
@@ -264,6 +253,7 @@
             while (queue.length > 0) {
                 const [x, y] = queue.shift();
                 const pixelIndex = y * canvas.width + x;
+                
                 if (visited[pixelIndex]) continue;
                 visited[pixelIndex] = 1;
 
@@ -272,11 +262,20 @@
                 const g = pixels[pixelPos + 1];
                 const b = pixels[pixelPos + 2];
 
+                // 🛑 核心修正 🛑
+                // 在判斷是否要填色之前，先判斷「這是線條嗎？」
+                // 如果這個像素是深黑色 (線條)，就算它跟旁邊的深灰色顏料很像，也絕對不能填！
+                if (isBlackOutline(r, g, b)) {
+                    continue; // 撞牆了，停下！
+                }
+
+                // 只有通過上面的檢查，才執行相似度比對
                 if (colorsAreSimilar(r, g, b, startR, startG, startB, TOLERANCE)) {
                     pixels[pixelPos] = fillColor[0];
                     pixels[pixelPos + 1] = fillColor[1];
                     pixels[pixelPos + 2] = fillColor[2];
                     pixels[pixelPos + 3] = 255; 
+                    
                     if (x > 0) queue.push([x - 1, y]);
                     if (x < canvas.width - 1) queue.push([x + 1, y]);
                     if (y > 0) queue.push([x, y - 1]);
@@ -327,7 +326,6 @@
             return (Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2)) <= tol;
         }
 
-        // 🏆 修正點 3: 使用全域變數 LINE_THRESHOLD
         function isBlackOutline(r, g, b) {
             return r < LINE_THRESHOLD && g < LINE_THRESHOLD && b < LINE_THRESHOLD; 
         }
