@@ -4,25 +4,26 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kids Coloring Master - Responsive</title>
+    <title>Kids Coloring Master - Ultimate</title>
     <style>
         /* --- CSS 佈局核心 --- */
         body {
             margin: 0;
-            overflow: hidden; /* 徹底禁止捲動 */
+            overflow: hidden;
             background-color: #f0f4f8;
             font-family: "Varela Round", sans-serif;
             display: flex;
-            flex-direction: column; /* 垂直排列 */
-            height: 100vh; /* 佔滿視窗高度 */
-            height: 100dvh; /* 針對移動瀏覽器動態高度的優化 */
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
             overscroll-behavior: none;
             user-select: none;
         }
 
-        /* 頂部工具列：固定高度，不可壓縮 */
         #toolbar {
-            height: 60px;
+            height: 8vh;
+            min-height: 50px;
+            max-height: 70px;
             background: white;
             display: flex;
             justify-content: space-between;
@@ -30,78 +31,99 @@
             padding: 0 15px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             z-index: 10;
-            flex-shrink: 0; /* 關鍵：禁止被壓縮 */
+            flex-shrink: 0;
         }
 
-        /* 畫布容器：佔滿剩餘空間，但絕不溢出 */
         #canvas-container {
-            flex: 1; /* 吃掉所有剩餘空間 */
-            min-height: 0; /* 🏆 關鍵修正：允許容器縮小到比內容還小 */
+            flex: 1;
+            min-height: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             position: relative;
-            background: #eef2f5; /* 容器底色與背景一致，讓畫布像浮在中間 */
-            padding: 10px; /* 留一點邊距 */
+            background: #eef2f5;
+            padding: 10px;
             width: 100%;
             box-sizing: border-box;
         }
 
         canvas {
-            /* 讓 Canvas 自己決定大小，但絕對不超過容器 */
             max-width: 100%;
             max-height: 100%;
-            object-fit: contain; /* 保持比例 */
-            background: white; /* 畫布本體是白的 */
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* 給畫布加陰影 */
+            object-fit: contain;
+            background: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             border-radius: 8px;
             touch-action: none;
             cursor: crosshair;
         }
 
-        /* 底部色票：固定高度，不可壓縮 */
+        /* --- 色票區優化 --- */
         #palette {
-            height: 90px;
+            height: 12vh;
+            min-height: 70px;
+            max-height: 120px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
+            justify-content: flex-start;
+            gap: 1.5vh;
             background: #fff;
+            padding: 0 15px;
             padding-bottom: env(safe-area-inset-bottom);
             box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
-            flex-shrink: 0; /* 關鍵：禁止被壓縮 */
-            overflow-x: auto; /* 如果顏色太多，允許左右滑動 */
+            flex-shrink: 0;
+            overflow-x: auto; /* 允許橫向捲動 */
+            overflow-y: hidden;
+            
+            /* 🏆 關鍵修正：PC版顯示細緻捲軸，手機版隱藏 */
+            scrollbar-width: thin; /* Firefox: 細捲軸 */
+            scrollbar-color: #ddd transparent; /* Firefox: 顏色 */
         }
 
-        /* 按鈕樣式優化 */
-        .btn {
-            background: #eef2f5;
-            border: none;
-            border-radius: 12px;
-            width: 40px;
-            height: 40px;
-            font-size: 18px;
-            cursor: pointer;
-            display: flex; justify-content: center; align-items: center;
-            transition: all 0.1s;
+        /* 針對 Webkit (Chrome/Safari/Edge) 的捲軸美化 */
+        #palette::-webkit-scrollbar {
+            height: 6px; /* 高度設為 6px，細緻不擋路 */
         }
-        .btn:active { transform: scale(0.9); background: #dce4e8; }
-        .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
-        .btn-save { background: #4CD964; color: white; width: auto; padding: 0 15px; font-weight: bold; font-size: 14px; }
-        .tool-group { display: flex; gap: 10px; }
+        #palette::-webkit-scrollbar-thumb {
+            background-color: #ddd; /* 淺灰色捲軸 */
+            border-radius: 10px; /* 圓角 */
+        }
+        #palette::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* 📱 針對移動裝置 (觸控螢幕)：隱藏捲軸，保持美觀 */
+        @media (pointer: coarse) {
+            #palette { scrollbar-width: none; }
+            #palette::-webkit-scrollbar { display: none; }
+        }
 
         .color-swatch {
-            width: 40px;
-            height: 40px;
-            min-width: 40px; /* 防止被擠扁 */
+            height: 65%;
+            aspect-ratio: 1 / 1;
             border-radius: 50%;
             border: 3px solid #fff;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             transition: transform 0.1s;
+            flex-shrink: 0;
         }
-        .color-swatch.active { transform: scale(1.2); border-color: #333; }
+        .color-swatch.active { transform: scale(1.15); border-color: #333; }
 
-        /* 針對 PC 的額外優化：當螢幕夠寬時，增加一些陰影層次 */
+        .btn {
+            background: #eef2f5;
+            border: none;
+            border-radius: 12px;
+            height: 70%;
+            aspect-ratio: 1/1;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .btn:active { transform: scale(0.9); background: #dce4e8; }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+        .btn-save { background: #4CD964; color: white; width: auto; aspect-ratio: auto; padding: 0 20px; font-weight: bold; font-size: 1rem; }
+        .tool-group { display: flex; gap: 10px; height: 100%; align-items: center; }
+
         @media (min-width: 768px) {
             #canvas-container { padding: 20px; }
         }
@@ -137,16 +159,14 @@
         const btnRedo = document.getElementById('btn-redo');
         const btnSave = document.getElementById('btn-save');
         
-        // --- 狀態 ---
         let currentColor = [255, 59, 48, 255]; 
         const baseWidth = 800;
-        const baseHeight = 800; // 內部解析度維持正方形，顯示由 CSS 控制
+        const baseHeight = 800; 
         
         let historyStack = [];
         let redoStack = [];
 
         function init() {
-            // 設定畫布內部解析度 (這跟螢幕顯示大小無關，是照片的解析度)
             canvas.width = baseWidth;
             canvas.height = baseHeight;
             
@@ -159,72 +179,79 @@
             btnRedo.addEventListener('click', redo);
             btnSave.addEventListener('click', saveImage);
 
-            // 👇 新增：監聽視窗改變，確保畫布永遠在正確位置 (雖然 CSS 已經處理大部分)
-            window.addEventListener('resize', () => {
-                // 這裡可以加入重新計算邏輯，但目前的 CSS 方案已經能自動處理
-                // 如果需要特殊重繪可以在這裡加
+            // 🏆 關鍵修正：讓滑鼠滾輪 (垂直) 可以控制色票 (水平) 捲動
+            paletteContainer.addEventListener('wheel', (e) => {
+                if (e.deltaY !== 0) {
+                    e.preventDefault(); // 防止頁面上下跳動
+                    paletteContainer.scrollLeft += e.deltaY; // 將垂直滾動轉換為水平滾動
+                }
+            }, { passive: false });
+        }
+
+        // --- 30種顏色 (維持不變) ---
+        function createPalette() {
+            const colors = [
+                [255, 59, 48], [255, 105, 180], [255, 182, 193], [220, 20, 60],
+                [255, 149, 0], [255, 165, 0], [255, 204, 0], [255, 255, 0], [240, 230, 140],
+                [255, 228, 196], [255, 218, 185], [210, 180, 140], [139, 69, 19],
+                [76, 217, 100], [124, 252, 0], [34, 139, 34], [0, 128, 128],
+                [90, 200, 250], [0, 191, 255], [0, 122, 255], [0, 0, 139],
+                [88, 86, 214], [148, 0, 211], [221, 160, 221],
+                [255, 255, 255], [211, 211, 211], [128, 128, 128], [169, 169, 169], [80, 80, 80], [0, 0, 0]
+            ];
+
+            colors.forEach((c, index) => {
+                const div = document.createElement('div');
+                div.className = `color-swatch ${index === 0 ? 'active' : ''}`;
+                div.style.backgroundColor = `rgb(${c[0]},${c[1]},${c[2]})`;
+                div.addEventListener('click', () => {
+                    document.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('active'));
+                    div.classList.add('active');
+                    currentColor = [...c, 255];
+                });
+                paletteContainer.appendChild(div);
             });
         }
 
-        // --- 載入與繪圖 ---
+        // --- 核心邏輯 ---
         function loadLineArt() {
             const img = new Image();
             img.crossOrigin = "Anonymous";
             img.src = IMAGE_FILENAME;
-
             img.onload = function() {
-                // 1. 塗白底
                 ctx.fillStyle = 'white';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // 2. 智慧縮放 (即使圖片不是正方形，也會自動適配到 800x800 內)
                 const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
                 const w = img.width * scale;
                 const h = img.height * scale;
                 const x = (canvas.width - w) / 2;
                 const y = (canvas.height - h) / 2;
-
                 ctx.drawImage(img, x, y, w, h);
-                // 初始狀態不一定要存入 history，視需求而定
             };
-            
-            img.onerror = function() {
-                // 這裡不跳 alert 擾人，改用 console
-                console.error("找不到圖片，請檢查檔名");
-            };
+            img.onerror = function() { console.error("找不到圖片"); };
         }
 
-        // --- 座標轉換系統 (回應式核心) ---
         function handleCanvasClick(e) {
-            // 每次點擊都重新計算，保證視窗縮放後依然準確
             const rect = canvas.getBoundingClientRect();
-            
-            // 算出 Canvas 內部像素 與 螢幕顯示像素 的比例
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
-
             const x = Math.floor((e.clientX - rect.left) * scaleX);
             const y = Math.floor((e.clientY - rect.top) * scaleY);
-
             floodFill(x, y, currentColor);
         }
 
-        // --- 著色邏輯 (與之前相同) ---
         function floodFill(startX, startY, fillColor) {
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const pixels = imageData.data;
-            
             const startPos = (startY * canvas.width + startX) * 4;
             const startR = pixels[startPos];
             const startG = pixels[startPos + 1];
             const startB = pixels[startPos + 2];
 
             if (colorsAreSimilar(startR, startG, startB, fillColor[0], fillColor[1], fillColor[2], 20) || 
-                isBlackOutline(startR, startG, startB)) {
-                return;
-            }
+                isBlackOutline(startR, startG, startB)) return;
 
-            saveState(); // 存檔
+            saveState();
 
             const queue = [[startX, startY]];
             const visited = new Uint8Array(canvas.width * canvas.height); 
@@ -232,7 +259,6 @@
             while (queue.length > 0) {
                 const [x, y] = queue.shift();
                 const pixelIndex = y * canvas.width + x;
-                
                 if (visited[pixelIndex]) continue;
                 visited[pixelIndex] = 1;
 
@@ -246,7 +272,6 @@
                     pixels[pixelPos + 1] = fillColor[1];
                     pixels[pixelPos + 2] = fillColor[2];
                     pixels[pixelPos + 3] = 255; 
-
                     if (x > 0) queue.push([x - 1, y]);
                     if (x < canvas.width - 1) queue.push([x + 1, y]);
                     if (y > 0) queue.push([x, y - 1]);
@@ -256,7 +281,6 @@
             ctx.putImageData(imageData, 0, 0);
         }
 
-        // --- Undo/Redo 系統 ---
         function saveState() {
             redoStack = []; 
             if (historyStack.length >= MAX_HISTORY) historyStack.shift();
@@ -285,7 +309,6 @@
             btnRedo.disabled = redoStack.length === 0;
         }
 
-        // --- 儲存與輔助 ---
         function saveImage() {
             const link = document.createElement('a');
             const date = new Date();
@@ -301,25 +324,6 @@
 
         function isBlackOutline(r, g, b) {
             return r < 100 && g < 100 && b < 100; 
-        }
-
-        function createPalette() {
-            const colors = [
-                [255, 59, 48], [255, 149, 0], [255, 204, 0], [76, 217, 100],
-                [90, 200, 250], [0, 122, 255], [88, 86, 214], [255, 105, 180], 
-                [100, 100, 100], [255, 255, 255]
-            ];
-            colors.forEach((c, index) => {
-                const div = document.createElement('div');
-                div.className = `color-swatch ${index === 0 ? 'active' : ''}`;
-                div.style.backgroundColor = `rgb(${c[0]},${c[1]},${c[2]})`;
-                div.addEventListener('click', () => {
-                    document.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('active'));
-                    div.classList.add('active');
-                    currentColor = [...c, 255];
-                });
-                paletteContainer.appendChild(div);
-            });
         }
 
         init();
