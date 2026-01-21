@@ -1,17 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <!-- Google Tag Manager -->
     <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-W2FV7ZPZ');</script>
-    <!-- End Google Tag Manager -->
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kids Coloring Master - V3.3 Stable</title>
+    <title>Kids Coloring Master - V4.0 Multi-Image</title>
     <style>
         /* --- CSS 佈局核心 --- */
         body {
@@ -27,10 +25,11 @@
             user-select: none;
         }
 
+        /* 1. 頂部工具列 */
         #toolbar {
-            height: 8vh;
-            min-height: 50px;
-            max-height: 70px;
+            height: 7vh; /* 稍微縮小讓位給圖片選單 */
+            min-height: 45px;
+            max-height: 60px;
             background: white;
             display: flex;
             justify-content: space-between;
@@ -41,6 +40,45 @@
             flex-shrink: 0;
         }
 
+        /* 2. 新增：圖片導覽列 (Image Selector) */
+        #image-nav {
+            height: 9vh;
+            min-height: 60px;
+            max-height: 90px;
+            background: #fff;
+            display: flex;
+            justify-content: center; /* 圖片少時置中 */
+            align-items: center;
+            gap: 12px;
+            padding: 5px 10px;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+            overflow-x: auto; /* 支援橫向捲動 */
+            scrollbar-width: none; 
+        }
+        #image-nav::-webkit-scrollbar { display: none; }
+
+        /* 導覽列的小縮圖樣式 */
+        .nav-thumb {
+            height: 80%;
+            aspect-ratio: 1/1;
+            object-fit: contain;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 2px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        .nav-thumb:active { transform: scale(0.9); }
+        .nav-thumb.active {
+            border-color: #007aff; /* 選中時變藍色框 */
+            border-width: 3px;
+            box-shadow: 0 2px 8px rgba(0,122,255,0.3);
+            transform: scale(1.05);
+        }
+
+        /* 3. 畫布容器 */
         #canvas-container {
             flex: 1;
             min-height: 0;
@@ -65,7 +103,7 @@
             cursor: crosshair;
         }
 
-        /* --- 色票區 --- */
+        /* 4. 底部色票區 */
         #palette {
             height: 12vh;
             min-height: 70px;
@@ -126,11 +164,8 @@
     </style>
 </head>
 <body>
-<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-W2FV7ZPZ"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
- 
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-W2FV7ZPZ"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="toolbar">
         <div class="tool-group">
             <button id="btn-undo" class="btn" title="復原">↩️</button>
@@ -138,6 +173,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <button id="btn-save" class="btn btn-save" title="儲存圖片">💾 儲存</button>
     </div>
+
+    <div id="image-nav">
+        </div>
 
     <div id="canvas-container">
         <canvas id="drawing-canvas"></canvas>
@@ -147,7 +185,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <script>
         // --- 參數設定 ---
-        const IMAGE_FILENAME = 'coloring.png'; 
+        // ⚠️ 請確保這 5 張圖片真實存在於您的資料夾中
+        const IMAGES = [
+            'img1.png', 
+            'img2.png', 
+            'img3.png', 
+            'img4.png', 
+            'img5.png'
+        ];
+        
+        let currentImageIndex = 0; // 目前選中的圖片索引
+
         const TOLERANCE = 50; 
         const MAX_HISTORY = 10; 
         // 嚴格定義：小於 50 的顏色絕對是線條，神聖不可侵犯
@@ -157,6 +205,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         const canvas = document.getElementById('drawing-canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const paletteContainer = document.getElementById('palette');
+        const navContainer = document.getElementById('image-nav'); // 新增導覽列容器
         const btnUndo = document.getElementById('btn-undo');
         const btnRedo = document.getElementById('btn-redo');
         const btnSave = document.getElementById('btn-save');
@@ -173,7 +222,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             canvas.height = baseHeight;
             
             createPalette();
-            loadLineArt();
+            createImageNav(); // 建立圖片選單
+            loadLineArt(IMAGES[currentImageIndex]); // 載入第一張圖
             updateUI();
 
             canvas.addEventListener('pointerdown', handleCanvasClick);
@@ -187,6 +237,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     paletteContainer.scrollLeft += e.deltaY;
                 }
             }, { passive: false });
+        }
+
+        // --- 新增：建立圖片導覽列 ---
+        function createImageNav() {
+            navContainer.innerHTML = ''; // 清空
+            IMAGES.forEach((src, index) => {
+                const img = document.createElement('img');
+                img.src = src;
+                img.className = `nav-thumb ${index === currentImageIndex ? 'active' : ''}`;
+                img.onclick = () => switchImage(index);
+                navContainer.appendChild(img);
+            });
+        }
+
+        // --- 新增：切換圖片邏輯 ---
+        function switchImage(index) {
+            if (index === currentImageIndex) return; // 如果點同一個就不重載
+
+            // 更新狀態
+            currentImageIndex = index;
+            
+            // 更新 UI 顯示 (邊框)
+            document.querySelectorAll('.nav-thumb').forEach((el, i) => {
+                if (i === index) el.classList.add('active');
+                else el.classList.remove('active');
+            });
+
+            // 清空歷史紀錄 (避免 Undo 回到上一張圖)
+            historyStack = [];
+            redoStack = [];
+            updateUI();
+
+            // 載入新圖
+            loadLineArt(IMAGES[index]);
         }
 
         function createPalette() {
@@ -215,10 +299,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         }
 
         // --- 核心邏輯 ---
-        function loadLineArt() {
+        function loadLineArt(filename) {
             const img = new Image();
             img.crossOrigin = "Anonymous";
-            img.src = IMAGE_FILENAME;
+            img.src = filename; // 改為讀取參數傳入的檔名
             img.onload = function() {
                 ctx.fillStyle = 'white';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -229,7 +313,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 const y = (canvas.height - h) / 2;
                 ctx.drawImage(img, x, y, w, h);
             };
-            img.onerror = function() { console.error("找不到圖片"); };
+            img.onerror = function() { console.error(`找不到圖片: ${filename}`); };
         }
 
         function handleCanvasClick(e) {
@@ -241,7 +325,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             floodFill(x, y, currentColor);
         }
 
-        // 🏆 修正後的填色演算法 (加入邊界守衛)
+        // 🏆 修正後的填色演算法 (保留邊界守衛)
         function floodFill(startX, startY, fillColor) {
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const pixels = imageData.data;
@@ -273,14 +357,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 const g = pixels[pixelPos + 1];
                 const b = pixels[pixelPos + 2];
 
-                // 🛑 核心修正 🛑
-                // 在判斷是否要填色之前，先判斷「這是線條嗎？」
-                // 如果這個像素是深黑色 (線條)，就算它跟旁邊的深灰色顏料很像，也絕對不能填！
+                // 🛑 核心修正：邊界守衛 🛑
                 if (isBlackOutline(r, g, b)) {
-                    continue; // 撞牆了，停下！
+                    continue; 
                 }
 
-                // 只有通過上面的檢查，才執行相似度比對
                 if (colorsAreSimilar(r, g, b, startR, startG, startB, TOLERANCE)) {
                     pixels[pixelPos] = fillColor[0];
                     pixels[pixelPos + 1] = fillColor[1];
