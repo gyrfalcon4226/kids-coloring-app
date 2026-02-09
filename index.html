@@ -251,10 +251,15 @@
 
         canvas {
             display: block;
-            max-width: 100%;
-            max-height: 100%;
             background: white;
             touch-action: none;
+            /* 尺寸由 JS syncCanvasSize() 控制，不使用 max-width/max-height */
+        }
+        
+        #base-canvas {
+            /* 確保 baseCanvas 尺寸由 JS 控制 */
+            max-width: none;
+            max-height: none;
         }
 
         #drawing-canvas {
@@ -785,16 +790,31 @@
         let redoStack = [];
 
         // ===== 同步 Canvas 尺寸 =====
-        // 確保 drawCanvas 的顯示尺寸與 baseCanvas 完全一致
+        // 確保兩個 canvas 的顯示尺寸完全一致，且適應容器大小
         let resizeTimer;
         
         function syncCanvasSize() {
-            const baseRect = baseCanvas.getBoundingClientRect();
-            // 防護：尺寸為 0 時不處理（佈局尚未完成）
-            if (baseRect.width === 0 || baseRect.height === 0) return;
+            const container = document.getElementById('canvas-container');
+            const containerRect = container.getBoundingClientRect();
             
-            drawCanvas.style.width = baseRect.width + 'px';
-            drawCanvas.style.height = baseRect.height + 'px';
+            // 防護：尺寸為 0 時不處理（佈局尚未完成）
+            if (containerRect.width === 0 || containerRect.height === 0) return;
+            
+            // 計算容器可用空間（扣除 padding）
+            const containerStyle = window.getComputedStyle(container);
+            const paddingX = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
+            const paddingY = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
+            const availableWidth = containerRect.width - paddingX;
+            const availableHeight = containerRect.height - paddingY;
+            
+            // 計算保持 1:1 比例的最大尺寸
+            const size = Math.min(availableWidth, availableHeight);
+            
+            // 設定兩個 canvas 的 CSS 尺寸
+            baseCanvas.style.width = size + 'px';
+            baseCanvas.style.height = size + 'px';
+            drawCanvas.style.width = size + 'px';
+            drawCanvas.style.height = size + 'px';
         }
         
         // 確保佈局完成後才同步（雙重 rAF）
