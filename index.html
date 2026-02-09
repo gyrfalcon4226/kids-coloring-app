@@ -263,6 +263,9 @@
             left: 0;
             background: transparent !important;
             pointer-events: auto;
+            /* 重要：覆蓋通用 canvas 的 max-width/max-height，讓 JS 可以控制實際尺寸 */
+            max-width: none !important;
+            max-height: none !important;
             /* 尺寸由 JS syncCanvasSize() 控制，確保與 baseCanvas 一致 */
         }
 
