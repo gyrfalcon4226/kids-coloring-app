@@ -257,6 +257,8 @@
             position: absolute;
             top: 0;
             left: 0;
+            width: 100%;
+            height: 100%;
         }
 
         /* ===== 載入動畫 ===== */
@@ -955,6 +957,7 @@
 
         // ===== 指標事件處理 =====
         function handlePointerDown(e) {
+            e.preventDefault();
             const { x, y } = getCanvasCoords(e);
 
             if (currentMode === 'fill') {
@@ -964,14 +967,15 @@
                 lastX = x;
                 lastY = y;
                 saveState();
-                draw(x, y);
+                draw(x, y, true); // true = 第一個點，畫圓點
             }
         }
 
         function handlePointerMove(e) {
             if (!isDrawing) return;
+            e.preventDefault();
             const { x, y } = getCanvasCoords(e);
-            draw(x, y);
+            draw(x, y, false); // 連續繪製，不是第一個點
             lastX = x;
             lastY = y;
         }
@@ -994,23 +998,31 @@
         }
 
         // ===== 繪製 =====
-        function draw(x, y) {
-            drawCtx.beginPath();
-            drawCtx.lineCap = 'round';
-            drawCtx.lineJoin = 'round';
-            drawCtx.lineWidth = brushSize;
-
+        function draw(x, y, isFirstPoint = false) {
             if (currentMode === 'eraser') {
                 drawCtx.globalCompositeOperation = 'destination-out';
                 drawCtx.strokeStyle = 'rgba(255,255,255,1)';
+                drawCtx.fillStyle = 'rgba(255,255,255,1)';
             } else {
                 drawCtx.globalCompositeOperation = 'source-over';
                 drawCtx.strokeStyle = `rgb(${currentColor[0]},${currentColor[1]},${currentColor[2]})`;
+                drawCtx.fillStyle = `rgb(${currentColor[0]},${currentColor[1]},${currentColor[2]})`;
             }
 
-            drawCtx.moveTo(lastX, lastY);
-            drawCtx.lineTo(x, y);
-            drawCtx.stroke();
+            // 如果是第一個點，畫一個圓點
+            if (isFirstPoint) {
+                drawCtx.beginPath();
+                drawCtx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+                drawCtx.fill();
+            } else {
+                drawCtx.beginPath();
+                drawCtx.lineCap = 'round';
+                drawCtx.lineJoin = 'round';
+                drawCtx.lineWidth = brushSize;
+                drawCtx.moveTo(lastX, lastY);
+                drawCtx.lineTo(x, y);
+                drawCtx.stroke();
+            }
         }
 
         // ===== 填色 (Flood Fill) =====
