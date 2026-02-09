@@ -261,10 +261,9 @@
             position: absolute;
             top: 0;
             left: 0;
-            /* 重要：讓 drawing canvas 跟 base canvas 大小一致 */
-            /* 不要用 width/height: 100%，這會讓它填滿父容器而非匹配 base canvas */
             background: transparent !important;
             pointer-events: auto;
+            /* 尺寸由 JS syncCanvasSize() 控制，確保與 baseCanvas 一致 */
         }
 
         /* ===== 載入動畫 ===== */
@@ -782,6 +781,14 @@
         let historyStack = [];
         let redoStack = [];
 
+        // ===== 同步 Canvas 尺寸 =====
+        // 確保 drawCanvas 的顯示尺寸與 baseCanvas 完全一致
+        function syncCanvasSize() {
+            const baseRect = baseCanvas.getBoundingClientRect();
+            drawCanvas.style.width = baseRect.width + 'px';
+            drawCanvas.style.height = baseRect.height + 'px';
+        }
+
         // ===== 初始化 =====
         function init() {
             baseCanvas.width = drawCanvas.width = CANVAS_SIZE;
@@ -832,6 +839,11 @@
             }, { passive: false });
 
             // 注意：loadSavedProgress 已在 loadImage.onload 中調用，這裡不重複
+
+            // 視窗大小改變時重新同步 canvas 尺寸
+            window.addEventListener('resize', () => {
+                requestAnimationFrame(syncCanvasSize);
+            });
         }
 
         // ===== 建立色票 =====
@@ -923,6 +935,9 @@
                 // 嘗試載入已存的進度
                 loadSavedProgress();
                 showLoading(false);
+                
+                // 同步 drawCanvas 尺寸與 baseCanvas（等 DOM 更新後）
+                requestAnimationFrame(syncCanvasSize);
             };
 
             img.onerror = (e) => {
