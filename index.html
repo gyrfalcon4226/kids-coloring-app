@@ -825,8 +825,7 @@
                 }
             }, { passive: false });
 
-            // 嘗試載入已存檔
-            loadSavedProgress();
+            // 注意：loadSavedProgress 已在 loadImage.onload 中調用，這裡不重複
         }
 
         // ===== 建立色票 =====
@@ -898,10 +897,10 @@
             showLoading(true);
 
             const img = new Image();
-            img.crossOrigin = 'Anonymous';
             img.src = IMAGES[index];
 
             img.onload = () => {
+                console.log('Image loaded:', IMAGES[index]);
                 // 清空畫布
                 baseCtx.fillStyle = 'white';
                 baseCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -920,7 +919,8 @@
                 showLoading(false);
             };
 
-            img.onerror = () => {
+            img.onerror = (e) => {
+                console.error('Image load error:', IMAGES[index], e);
                 showLoading(false);
                 showToast('❌ 圖片載入失敗');
                 sound.playError();
