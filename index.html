@@ -783,10 +783,22 @@
 
         // ===== 同步 Canvas 尺寸 =====
         // 確保 drawCanvas 的顯示尺寸與 baseCanvas 完全一致
+        let resizeTimer;
+        
         function syncCanvasSize() {
             const baseRect = baseCanvas.getBoundingClientRect();
+            // 防護：尺寸為 0 時不處理（佈局尚未完成）
+            if (baseRect.width === 0 || baseRect.height === 0) return;
+            
             drawCanvas.style.width = baseRect.width + 'px';
             drawCanvas.style.height = baseRect.height + 'px';
+        }
+        
+        // 確保佈局完成後才同步（雙重 rAF）
+        function syncCanvasSizeDeferred() {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(syncCanvasSize);
+            });
         }
 
         // ===== 初始化 =====
@@ -840,9 +852,15 @@
 
             // 注意：loadSavedProgress 已在 loadImage.onload 中調用，這裡不重複
 
-            // 視窗大小改變時重新同步 canvas 尺寸
+            // 視窗大小改變時重新同步 canvas 尺寸（加 debounce）
             window.addEventListener('resize', () => {
-                requestAnimationFrame(syncCanvasSize);
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(syncCanvasSizeDeferred, 100);
+            });
+            
+            // 螢幕旋轉時重新同步
+            window.addEventListener('orientationchange', () => {
+                setTimeout(syncCanvasSizeDeferred, 100);
             });
         }
 
@@ -937,7 +955,7 @@
                 showLoading(false);
                 
                 // 同步 drawCanvas 尺寸與 baseCanvas（等 DOM 更新後）
-                requestAnimationFrame(syncCanvasSize);
+                syncCanvasSizeDeferred();
             };
 
             img.onerror = (e) => {
