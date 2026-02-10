@@ -569,9 +569,11 @@
             font-weight: 600;
         }
 
-        .share-btn.facebook { background: #1877F2; color: white; }
-        .share-btn.twitter { background: #1DA1F2; color: white; }
-        .share-btn.line { background: #00B900; color: white; }
+        .share-btn.copy { 
+            background: linear-gradient(145deg, #A78BFA, #8B5CF6); 
+            color: white;
+            box-shadow: 0 4px 15px rgba(167, 139, 250, 0.4);
+        }
         .share-btn.download { background: #f0f0f0; color: #333; }
 
         .share-close {
@@ -821,9 +823,7 @@
         <div id="share-panel">
             <div class="share-title">🎉 分享你的作品！</div>
             <div class="share-options">
-                <button class="share-btn facebook" data-share="facebook">📘<span>Facebook</span></button>
-                <button class="share-btn twitter" data-share="twitter">🐦<span>Twitter</span></button>
-                <button class="share-btn line" data-share="line">💬<span>LINE</span></button>
+                <button class="share-btn copy" data-share="copy">📋<span>複製</span></button>
                 <button class="share-btn download" data-share="download">💾<span>下載</span></button>
             </div>
             <button class="share-close">取消</button>
@@ -1559,35 +1559,70 @@
             if (show) sound.playSwitch();
         }
 
+        // 複製圖片到剪貼簿
+        async function copyImageToClipboard() {
+            try {
+                // 1. 合併兩層 canvas
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = CANVAS_SIZE;
+                exportCanvas.height = CANVAS_SIZE;
+                const exportCtx = exportCanvas.getContext('2d');
+                exportCtx.drawImage(baseCanvas, 0, 0);
+                exportCtx.drawImage(drawCanvas, 0, 0);
+
+                // 2. 轉成 Blob
+                const blob = await new Promise((resolve, reject) => {
+                    exportCanvas.toBlob(blob => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Canvas to Blob failed'));
+                    }, 'image/png');
+                });
+
+                // 3. 寫入剪貼簿
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                ]);
+
+                // 4. 成功回饋
+                sound.playSave();
+                showToast('✅ 已複製！可以貼到任何地方囉～');
+                return true;
+
+            } catch (err) {
+                console.error('複製圖片失敗:', err);
+                return false;
+            }
+        }
+
+        // 處理複製圖片（含 fallback）
+        async function handleCopyImage() {
+            // 檢查瀏覽器支援
+            if (!navigator.clipboard?.write || !window.ClipboardItem) {
+                sound.playError?.() || sound.playClear();
+                showToast('😅 你的瀏覽器不支援複製，幫你下載囉！');
+                saveImage();
+                return;
+            }
+
+            const success = await copyImageToClipboard();
+            
+            if (!success) {
+                sound.playError?.() || sound.playClear();
+                showToast('😅 複製失敗了，幫你下載囉！');
+                saveImage();
+            }
+        }
+
         function handleShare(type) {
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = CANVAS_SIZE;
-            exportCanvas.height = CANVAS_SIZE;
-            const exportCtx = exportCanvas.getContext('2d');
-            exportCtx.drawImage(baseCanvas, 0, 0);
-            exportCtx.drawImage(drawCanvas, 0, 0);
-
-            const dataUrl = exportCanvas.toDataURL('image/png');
-            const shareText = '看看我的著色作品！🎨 #KidsColoringMaster';
-            const shareUrl = window.location.href;
-
             switch (type) {
-                case 'facebook':
-                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`, '_blank');
-                    break;
-                case 'twitter':
-                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
-                    break;
-                case 'line':
-                    window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`, '_blank');
+                case 'copy':
+                    handleCopyImage();
                     break;
                 case 'download':
                     saveImage();
                     break;
             }
-
             toggleShareMenu(false);
-            sound.playSave();
         }
 
         // ===== 工具函數 =====
