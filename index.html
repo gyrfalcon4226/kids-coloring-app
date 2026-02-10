@@ -752,6 +752,179 @@
             .color-swatch { width: 52px; height: 52px; }
             .color-swatch.active { width: 60px; height: 60px; }
         }
+
+        /* ===== 手機橫向模式 - 左右佈局 ===== */
+        @media (orientation: landscape) and (max-height: 500px) {
+            body {
+                flex-direction: row;
+                overflow: hidden;
+            }
+
+            /* 左側面板：工具列 + 模式選擇 */
+            #toolbar {
+                flex-direction: column;
+                width: 56px;
+                height: 100%;
+                min-height: 100%;
+                padding: 8px 6px;
+                border-radius: 0 16px 16px 0;
+                justify-content: flex-start;
+                gap: 8px;
+            }
+
+            #toolbar .tool-group {
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            #toolbar .btn {
+                width: 40px;
+                height: 40px;
+                font-size: 1.1rem;
+            }
+
+            #toolbar .btn-action {
+                min-width: 40px;
+                width: 40px;
+                height: 40px;
+                padding: 0;
+            }
+
+            #toolbar .btn-action .btn-label {
+                display: none;
+            }
+
+            #toolbar .btn-clear {
+                margin-left: 0;
+                margin-top: 8px;
+            }
+
+            /* 模式選擇器 - 橫向時垂直排列在左側 */
+            #mode-selector {
+                position: fixed;
+                left: 62px;
+                top: 50%;
+                transform: translateY(-50%);
+                flex-direction: column;
+                width: auto;
+                min-height: auto;
+                height: auto;
+                margin: 0;
+                padding: 8px;
+                gap: 6px;
+                border-radius: 14px;
+                z-index: 90;
+            }
+
+            #mode-selector .mode-btn {
+                width: 48px;
+                min-width: 48px;
+                max-width: 48px;
+                height: 48px;
+                padding: 4px;
+            }
+
+            #mode-selector .mode-label {
+                display: none;
+            }
+
+            #mode-selector .mode-icon {
+                font-size: 1.3rem;
+            }
+
+            /* 筆刷大小 - 橫向時在模式選擇器下方 */
+            #brush-size-container {
+                position: fixed;
+                left: 62px;
+                bottom: 10px;
+                flex-direction: column;
+                width: 54px;
+                margin: 0;
+                padding: 8px;
+                gap: 6px;
+                border-radius: 12px;
+            }
+
+            #brush-size-container label {
+                font-size: 0.75rem;
+            }
+
+            #brush-size-container #brush-size {
+                writing-mode: vertical-lr;
+                direction: rtl;
+                width: 6px;
+                height: 60px;
+            }
+
+            #brush-size-container #brush-preview {
+                width: 24px;
+                height: 24px;
+            }
+
+            /* 圖片導覽 - 橫向時隱藏（節省空間） */
+            #image-nav {
+                display: none;
+            }
+
+            /* 畫布容器 - 最大化 */
+            #canvas-container {
+                flex: 1;
+                margin: 8px;
+                padding: 8px;
+                min-width: 0;
+            }
+
+            /* 右側色票面板 - 垂直排列 */
+            #palette {
+                flex-direction: column;
+                width: 56px;
+                min-height: 100%;
+                height: 100%;
+                max-height: 100%;
+                padding: 10px 6px;
+                padding-right: calc(6px + env(safe-area-inset-right));
+                border-radius: 16px 0 0 16px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                gap: 8px;
+            }
+
+            #palette::after {
+                display: none;
+            }
+
+            #palette .color-swatch {
+                width: 38px;
+                height: 38px;
+                flex-shrink: 0;
+            }
+
+            #palette .color-swatch.active {
+                width: 42px;
+                height: 42px;
+            }
+
+            /* 分享選單調整 */
+            #share-menu #share-panel {
+                max-width: 90%;
+            }
+        }
+
+        /* 橫向模式下的圖片選擇浮動按鈕 */
+        @media (orientation: landscape) and (max-height: 500px) {
+            /* 在畫布下方顯示小型圖片切換器 */
+            #canvas-container::after {
+                content: '';
+                position: absolute;
+                bottom: 4px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 60px;
+                height: 4px;
+                background: rgba(255,255,255,0.5);
+                border-radius: 2px;
+            }
+        }
     </style>
 </head>
 <body>
