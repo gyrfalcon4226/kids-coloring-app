@@ -62,8 +62,13 @@
 
         .tool-group {
             display: flex;
-            gap: 8px;
+            gap: 12px;
             align-items: center;
+        }
+
+        /* 危險操作（清除）額外間距 */
+        .btn-clear {
+            margin-left: 8px;
         }
 
         .btn {
@@ -87,9 +92,10 @@
         }
 
         .btn:disabled {
-            opacity: 0.4;
+            opacity: 0.3;
             cursor: not-allowed;
-            transform: none;
+            filter: grayscale(100%);
+            transform: scale(0.95);
         }
 
         .btn.active {
@@ -174,9 +180,13 @@
         }
 
         .mode-btn.active {
-            transform: scale(1.05);
-            box-shadow: 0 6px 20px rgba(167, 139, 250, 0.4);
-            color: white;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            border: 3px solid #6366f1;
+            box-shadow: 
+                0 0 0 2px white,
+                0 4px 12px rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+            color: #333;
         }
 
         .mode-btn span {
@@ -186,7 +196,7 @@
 
         /* ===== 圖片導覽列 ===== */
         #image-nav {
-            height: 70px;
+            height: 96px;
             background: var(--card-bg);
             display: flex;
             justify-content: flex-start;
@@ -206,26 +216,26 @@
         }
 
         .nav-thumb {
-            height: 50px;
-            width: 50px;
-            object-fit: contain;
-            border: 3px solid #e0e0e0;
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border: 3px solid transparent;
             border-radius: 12px;
             padding: 3px;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transition: all 0.2s ease;
             background: white;
             flex-shrink: 0;
         }
 
         .nav-thumb:active {
-            transform: scale(0.95);
+            transform: scale(0.92);
         }
 
         .nav-thumb.active {
-            border-color: var(--rainbow-4);
-            box-shadow: 0 4px 15px rgba(167, 139, 250, 0.4);
-            transform: scale(1.1);
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+            transform: scale(1.05);
         }
 
         /* ===== 畫布容器 ===== */
@@ -389,10 +399,24 @@
             overflow-x: auto;
             overflow-y: hidden;
             scrollbar-width: none;
+            position: relative;
         }
 
         #palette::-webkit-scrollbar {
             display: none;
+        }
+
+        /* 右側漸變提示（滾動提示） */
+        #palette::after {
+            content: "";
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+            background: linear-gradient(to right, transparent, rgba(99, 102, 241, 0.2));
+            pointer-events: none;
+            border-radius: 0 24px 0 0;
         }
 
         .color-swatch {
@@ -407,13 +431,18 @@
         }
 
         .color-swatch:active {
-            transform: scale(0.9);
+            transform: scale(0.92);
         }
 
         .color-swatch.active {
-            transform: scale(1.2);
-            border-color: #333;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+            width: 52px;
+            height: 52px;
+            border: 4px solid #333;
+            box-shadow: 
+                0 0 0 3px white,
+                0 0 0 6px #333,
+                0 4px 12px rgba(0,0,0,0.3);
+            transform: scale(1.1);
         }
 
         /* ===== 分享選單 ===== */
@@ -644,17 +673,29 @@
             transform: translateX(-50%) translateY(0);
         }
 
+        /* ===== 點擊回饋動畫 ===== */
+        .clickable:active,
+        .btn:active,
+        .mode-btn:active,
+        .color-swatch:active,
+        .nav-thumb:active,
+        .share-btn:active,
+        .confirm-btn:active {
+            transform: scale(0.92);
+        }
+
         /* ===== 響應式 ===== */
         @media (min-width: 768px) {
             #toolbar { height: 70px; padding: 0 20px; }
             .btn { width: 52px; height: 52px; font-size: 1.5rem; }
             #mode-selector { height: 64px; margin: 12px 20px; }
             .mode-btn { height: 50px; font-size: 1.6rem; }
-            #image-nav { height: 80px; margin: 0 20px 12px; }
-            .nav-thumb { width: 60px; height: 60px; }
+            #image-nav { height: 100px; margin: 0 20px 12px; }
+            .nav-thumb { width: 90px; height: 90px; }
             #canvas-container { padding: 20px; margin: 0 20px; }
             #palette { min-height: 90px; padding: 15px 20px; }
             .color-swatch { width: 52px; height: 52px; }
+            .color-swatch.active { width: 60px; height: 60px; }
         }
     </style>
 </head>
