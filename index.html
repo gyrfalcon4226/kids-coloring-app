@@ -506,6 +506,92 @@
             cursor: pointer;
         }
 
+        /* ===== 確認 Modal ===== */
+        #confirm-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #confirm-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #confirm-panel {
+            background: white;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 24px 24px 0 0;
+            padding: 24px 20px;
+            padding-bottom: calc(24px + env(safe-area-inset-bottom));
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #confirm-modal.visible #confirm-panel {
+            transform: translateY(0);
+        }
+
+        .confirm-title {
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .confirm-message {
+            text-align: center;
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 24px;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .confirm-btn {
+            flex: 1;
+            height: 50px;
+            min-width: 44px;
+            min-height: 44px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .confirm-btn:active {
+            transform: scale(0.95);
+        }
+
+        .confirm-cancel {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .confirm-ok {
+            background: var(--rainbow-1);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .confirm-ok:active {
+            box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+        }
+
         /* ===== 填色成功動畫 ===== */
         .fill-burst {
             position: absolute;
@@ -639,6 +725,18 @@
 
     <!-- Toast 通知 -->
     <div id="toast"></div>
+
+    <!-- 確認 Modal -->
+    <div id="confirm-modal">
+        <div id="confirm-panel">
+            <div class="confirm-title" id="confirm-title">🗑️ 確定要清除嗎？</div>
+            <div class="confirm-message" id="confirm-message">你的著色會全部消失喔！</div>
+            <div class="confirm-buttons">
+                <button class="confirm-btn confirm-cancel" id="confirm-cancel">取消</button>
+                <button class="confirm-btn confirm-ok" id="confirm-ok">🗑️ 清除</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // ===== 設定 =====
@@ -1213,13 +1311,79 @@
         }
 
         function clearCanvas() {
-            if (!confirm('確定要清除所有著色嗎？')) return;
-            saveState();
-            drawCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            sound.playClear();
-            showToast('🗑️ 已清除');
-            autoSave();
+            // 防雙擊：開啟 modal 時禁用按鈕
+            if (btnClear.disabled) return;
+            btnClear.disabled = true;
+
+            showConfirmModal({
+                title: '🗑️ 確定要清除嗎？',
+                message: '你的著色會全部消失喔！',
+                confirmText: '🗑️ 清除',
+                onConfirm: () => {
+                    saveState();
+                    drawCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                    sound.playClear();
+                    showToast('🗑️ 已清除');
+                    autoSave();
+                    btnClear.disabled = false;
+                },
+                onCancel: () => {
+                    btnClear.disabled = false;
+                }
+            });
         }
+
+        // ===== 確認 Modal =====
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmTitle = document.getElementById('confirm-title');
+        const confirmMessage = document.getElementById('confirm-message');
+        const confirmOkBtn = document.getElementById('confirm-ok');
+        const confirmCancelBtn = document.getElementById('confirm-cancel');
+
+        let currentConfirmCallbacks = { onConfirm: null, onCancel: null };
+
+        function showConfirmModal(options) {
+            const { title, message, confirmText, onConfirm, onCancel } = options;
+
+            confirmTitle.textContent = title || '確定嗎？';
+            confirmMessage.textContent = message || '';
+            confirmOkBtn.textContent = confirmText || '確定';
+            currentConfirmCallbacks = { onConfirm, onCancel };
+
+            confirmModal.classList.add('visible');
+            sound.playSwitch();
+        }
+
+        function hideConfirmModal(confirmed) {
+            confirmModal.classList.remove('visible');
+            if (confirmed && currentConfirmCallbacks.onConfirm) {
+                currentConfirmCallbacks.onConfirm();
+            } else if (!confirmed && currentConfirmCallbacks.onCancel) {
+                currentConfirmCallbacks.onCancel();
+            }
+            currentConfirmCallbacks = { onConfirm: null, onCancel: null };
+        }
+
+        // Modal 事件監聽
+        confirmOkBtn.addEventListener('click', () => hideConfirmModal(true));
+        confirmCancelBtn.addEventListener('click', () => hideConfirmModal(false));
+
+        // 背景點擊關閉
+        confirmModal.addEventListener('click', (e) => {
+            if (e.target === confirmModal) hideConfirmModal(false);
+        });
+
+        // 鍵盤事件：Escape 關閉、Enter 確認
+        document.addEventListener('keydown', (e) => {
+            if (!confirmModal.classList.contains('visible')) return;
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                hideConfirmModal(false);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                hideConfirmModal(true);
+            }
+        });
 
         function updateUI() {
             btnUndo.disabled = historyStack.length === 0;
